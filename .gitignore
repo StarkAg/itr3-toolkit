@@ -1,0 +1,17 @@
+# Real case data — never commit. Keep your filled-in case file out of git.
+private/
+cases/
+*_case.py
+!examples/sample_case.py
+inputs.py
+!template/inputs.example.py
+
+# Generated output
+*.html
+*.pdf
+!examples/computation.html
+
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
