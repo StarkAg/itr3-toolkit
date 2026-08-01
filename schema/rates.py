@@ -1,8 +1,14 @@
 """
 Statutory rates by assessment year and regime.
 
-Add a new AY by adding a dict — no other file should need editing.
-Sources: Finance Act 2024 (AY 2025-26), Finance Act 2025 (AY 2026-27).
+Covers AY 2021-22 (when s.115BAC / the new regime was introduced) through
+AY 2026-27. Add a new AY by adding a dict entry — no other file should need
+editing.
+
+Sources: Finance Act 2020 (introduced 115BAC, AY 2021-22) through Finance Act
+2025 (AY 2026-27) and Finance Act 2026 (ITR-3/4 due-date change). Capital
+gains: Finance (No. 2) Act 2024, effective 23-07-2024 — mid-year within
+AY 2025-26, not at an AY boundary; see CAPITAL_GAINS_PERIODS below.
 """
 
 # ---------------------------------------------------------------------------
@@ -23,7 +29,22 @@ OLD_REGIME_EXEMPTION = {
     "superSenior": 5_00_000,
 }
 
+# The pre-Budget-2023 new regime (AY 2021-22 through AY 2023-24) was optional,
+# had no standard deduction, and used a finer 7-slab table starting at 2.5L —
+# unchanged across all three years. Budget 2023 replaced it for AY 2024-25
+# onward: made it the default, added a standard deduction, and moved to a
+# 6-slab table starting at 3L. AY 2026-27 (Finance Act 2025) widened the
+# slabs again and raised the exemption to 4L.
+_NEW_REGIME_2021_23 = [
+    (2_50_000, 0.00), (5_00_000, 0.05), (7_50_000, 0.10),
+    (10_00_000, 0.15), (12_50_000, 0.20), (15_00_000, 0.25),
+    (None, 0.30),
+]
+
 NEW_REGIME_SLABS = {
+    "2021-22": _NEW_REGIME_2021_23,
+    "2022-23": _NEW_REGIME_2021_23,
+    "2023-24": _NEW_REGIME_2021_23,
     "2024-25": [
         (3_00_000, 0.00), (6_00_000, 0.05), (9_00_000, 0.10),
         (12_00_000, 0.15), (15_00_000, 0.20), (None, 0.30),
@@ -39,6 +60,12 @@ NEW_REGIME_SLABS = {
     ],
 }
 
+# Before AY 2024-25 the new regime was OPTIONAL — filers defaulted to the old
+# regime unless they affirmatively chose 115BAC. From AY 2024-25 it flipped:
+# new is the default, and opting for old regime needs Form 10-IEA where there
+# is business/professional income.
+NEW_REGIME_WAS_DEFAULT_FROM = "2024-25"
+
 # ---------------------------------------------------------------------------
 # Rebate u/s 87A
 # ---------------------------------------------------------------------------
@@ -46,9 +73,15 @@ NEW_REGIME_SLABS = {
 # the rebate itself is allowed only against SLAB tax. Finance Act 2025 put the
 # exclusion of special-rate income beyond argument.
 
+# Before Budget 2023, the new regime's rebate was identical to the old
+# regime's — 5,00,000 / 12,500. Budget 2023 raised it for the new regime only;
+# the old regime's has not changed since.
 REBATE_87A = {
     "old": dict(income_limit=5_00_000, max_rebate=12_500),
     "new": {
+        "2021-22": dict(income_limit=5_00_000,  max_rebate=12_500),
+        "2022-23": dict(income_limit=5_00_000,  max_rebate=12_500),
+        "2023-24": dict(income_limit=5_00_000,  max_rebate=12_500),
         "2024-25": dict(income_limit=7_00_000,  max_rebate=25_000),
         "2025-26": dict(income_limit=7_00_000,  max_rebate=25_000),
         "2026-27": dict(income_limit=12_00_000, max_rebate=60_000),
@@ -62,8 +95,11 @@ REBATE_87A_EXCLUDES_SPECIAL_RATE = True
 # ---------------------------------------------------------------------------
 
 STANDARD_DEDUCTION = {
-    "old": 50_000,
-    "new": {"2024-25": 50_000, "2025-26": 75_000, "2026-27": 75_000},
+    "old": 50_000,  # unchanged since AY 2020-21
+    "new": {
+        "2021-22": 0, "2022-23": 0, "2023-24": 0,   # not available pre-2023 new regime
+        "2024-25": 50_000, "2025-26": 75_000, "2026-27": 75_000,
+    },
 }
 
 # ---------------------------------------------------------------------------
@@ -89,18 +125,40 @@ MARGINAL_RELIEF_APPLIES = True
 CESS = 0.04  # Health and Education Cess, on tax plus surcharge
 
 # ---------------------------------------------------------------------------
-# Capital gains — rates current from 23 July 2024
+# Capital gains
 # ---------------------------------------------------------------------------
+# Finance (No. 2) Act 2024 changed these rates from 23 July 2024 — a date
+# mid-way through AY 2025-26 (FY 2024-25), not an assessment-year boundary.
+# A single AY 2025-26 return can carry BOTH rates depending on each asset's
+# transfer date. Pick by transfer date, not by which AY you are filing:
+#
+#   transfer date <= 22-07-2024  -> CAPITAL_GAINS_PERIODS["pre_2024_07_23"]
+#   transfer date >= 23-07-2024  -> CAPITAL_GAINS_PERIODS["post_2024_07_23"]
+#
+# Every full AY from 2021-22 through 2024-25 (i.e. up to FY 2023-24) falls
+# entirely in the "pre" bucket. AY 2026-27 onward falls entirely "post".
+# AY 2025-26 is the one year that can straddle both.
 
-CAPITAL_GAINS = dict(
-    stcg_111A=0.20,
-    ltcg_112A=0.125,
-    ltcg_112A_annual_exemption=1_25_000,
-    ltcg_112=0.125,
-    indexation="Withdrawn from 23-07-2024. Resident individuals may elect the "
-               "pre-amendment 20%-with-indexation for immovable property "
-               "acquired before that date.",
-)
+CAPITAL_GAINS_PERIODS = {
+    "pre_2024_07_23": dict(
+        stcg_111A=0.15,
+        ltcg_112A=0.10,
+        ltcg_112A_annual_exemption=1_00_000,
+        ltcg_112="0.20 with indexation (other long-term assets)",
+    ),
+    "post_2024_07_23": dict(
+        stcg_111A=0.20,
+        ltcg_112A=0.125,
+        ltcg_112A_annual_exemption=1_25_000,
+        ltcg_112=0.125,
+        indexation="Withdrawn from 23-07-2024. Resident individuals may elect "
+                   "the pre-amendment 20%-with-indexation for immovable "
+                   "property acquired before that date.",
+    ),
+}
+
+# Convenience alias: the rates in force today (AY 2026-27 and beyond).
+CAPITAL_GAINS = CAPITAL_GAINS_PERIODS["post_2024_07_23"]
 
 # ---------------------------------------------------------------------------
 # Chapter VI-A caps — OLD regime only, except 80CCD(2) and 80JJAA
@@ -137,17 +195,48 @@ CHAPTER_VIA = {
                       desc="New employment — ALLOWED IN THE NEW REGIME"),
     "80QQB":     dict(cap=3_00_000, desc="Royalty on books"),
     "80RRB":     dict(cap=3_00_000, desc="Royalty on patents"),
+    "80CCH":     dict(cap=None, desc="Agnipath Scheme — Agniveer Corpus Fund "
+                      "contribution. ALLOWED IN THE NEW REGIME (from AY 2023-24)"),
 }
 
-NEW_REGIME_ALLOWS_ONLY = ("80CCD(2)", "80JJAA")
+NEW_REGIME_ALLOWS_ONLY = ("80CCD(2)", "80JJAA", "80CCH")
 
 # ---------------------------------------------------------------------------
 # Due dates
 # ---------------------------------------------------------------------------
-# Finance Act 2026 moved non-audit ITR-3/ITR-4 to 31 August permanently. It is
-# not an extension, and it does not apply to ITR-1/ITR-2.
+# STATUTORY dates only — i.e. what the Act specifies before any CBDT
+# notification extends them. CBDT has extended the non-audit deadline in
+# several recent years (AY 2024-25 and AY 2025-26 among them); those
+# extensions are announced late and change the practical date, not the one
+# below. Always check for a current-year circular before relying on this.
+#
+# Finance Act 2026 moved non-audit ITR-3/ITR-4 to 31 August PERMANENTLY,
+# splitting them from ITR-1/ITR-2 for the first time. That split does not
+# exist in earlier years — all non-audit forms shared one date.
+#
+# AY 2021-22 and AY 2022-23 are deliberately omitted: COVID-era due dates were
+# revised multiple times by successive notifications and a single "statutory"
+# date would be misleading for those two years specifically.
 
 DUE_DATES = {
+    "2023-24": {
+        "all_non_audit":       "31-07-2023",
+        "audit":               "31-10-2023",
+        "transfer_pricing":    "30-11-2023",
+        "belated_and_revised": "31-12-2023",
+    },
+    "2024-25": {
+        "all_non_audit":       "31-07-2024",
+        "audit":               "31-10-2024",
+        "transfer_pricing":    "30-11-2024",
+        "belated_and_revised": "31-12-2024",
+    },
+    "2025-26": {
+        "all_non_audit":       "31-07-2025",
+        "audit":               "31-10-2025",
+        "transfer_pricing":    "30-11-2025",
+        "belated_and_revised": "31-12-2025",
+    },
     "2026-27": {
         "itr1_itr2_non_audit": "31-07-2026",
         "itr3_itr4_non_audit": "31-08-2026",

@@ -29,7 +29,7 @@ sheet in the format an Indian accountant expects.
 |---|---|
 | `schema/options.py` | filing sections, regimes, presumptive schemes, special rates, loss carry-forward, cash-transaction limits, gift rules |
 | `schema/schedules.py` | all 44 ITR-3 schedules + Part A/B, each with a note on when it applies |
-| `schema/rates.py` | slabs for 3 AYs × both regimes, 87A, surcharge, cess, capital-gains rates, 21 Chapter VI-A sections, due dates |
+| `schema/rates.py` | slabs for AY 2021-22 – 2026-27 × both regimes, 87A, surcharge, cess, capital-gains rates (both sides of the 23-07-2024 change), 22 Chapter VI-A sections, due dates |
 | `scripts/computation.py` | case file → printable computation sheet |
 | `scripts/vda_reconstruct.py` | exchange ledger → FIFO gain/loss |
 | `scripts/schedule_vda.py` | → date-wise Schedule VDA CSV |
@@ -68,6 +68,19 @@ working paper, not evidence.
 ## Rules worth knowing
 
 Each of these is encoded, with a test pinning it.
+
+**The new regime changed shape twice, not once.** It launched in AY 2021-22
+optional, with a 7-slab table starting at ₹2.5L and no standard deduction.
+Budget 2023 made it the default from AY 2024-25, collapsed it to 6 slabs
+starting at ₹3L, and added a standard deduction. Finance Act 2025 widened it
+again for AY 2026-27. A case file for AY 2022-23 must not reuse today's slabs.
+
+**The capital-gains rate change landed mid-year, not at an AY boundary.**
+Finance (No. 2) Act 2024 raised STCG/LTCG rates from 23 July 2024 — partway
+through AY 2025-26 (FY 2024-25). A single AY 2025-26 return can carry both the
+old and new rates depending on each asset's transfer date;
+`CAPITAL_GAINS_PERIODS` is keyed by date range, not by AY, for exactly this
+reason.
 
 **87A cuts both ways.** The ₹12,00,000 ceiling is tested on *total* income
 including special-rate income, but the rebate applies only to *slab* tax. A
@@ -112,8 +125,8 @@ prints the residual for exactly this reason.
 python3 tests/test_rates.py     # or: python3 -m pytest -q
 ```
 
-22 tests over the slab boundaries, the 87A interaction, presumptive floors,
-special-rate restrictions, loss lifetimes and cash limits.
+32 tests over the slab boundaries across all six years, the 87A interaction,
+presumptive floors, special-rate restrictions, loss lifetimes and cash limits.
 
 ## Keeping your data out of git
 

@@ -44,6 +44,29 @@ def test_exemption_rises_with_age():
     assert e["below60"] < e["senior"] < e["superSenior"]
 
 
+def test_pre_2023_new_regime_slabs_are_identical_across_its_three_years():
+    """115BAC launched in AY 2021-22 with one table that held through AY 2023-24;
+    Budget 2023 replaced it starting AY 2024-25. All three early years must
+    share the exact same slabs, or one of them has been mistyped."""
+    a, b, c = (rates.NEW_REGIME_SLABS[ay] for ay in ("2021-22", "2022-23", "2023-24"))
+    assert a == b == c
+
+
+def test_pre_2023_new_regime_exemption_was_lower_than_todays():
+    old = rates.NEW_REGIME_SLABS["2021-22"]
+    new = rates.NEW_REGIME_SLABS["2026-27"]
+    assert old[0][0] == 2_50_000          # pre-2023: 2.5L exemption
+    assert new[0][0] == 4_00_000          # AY 2026-27: 4L exemption
+    assert old[0][0] < new[0][0]
+
+
+def test_pre_2023_new_regime_had_seven_slabs_not_six():
+    # The old table stepped 5/10/15/20/25/30; Budget 2023 collapsed it to
+    # 5/10/15/20/30 (dropping the 25% step) and moved the boundaries.
+    assert len(rates.NEW_REGIME_SLABS["2023-24"]) == 7
+    assert len(rates.NEW_REGIME_SLABS["2024-25"]) == 6
+
+
 # --------------------------------------------------------------------------
 # 87A — the interaction that catches people out
 # --------------------------------------------------------------------------
@@ -52,6 +75,20 @@ def test_87a_threshold_rose_for_2026_27():
     assert rates.REBATE_87A["new"]["2025-26"]["income_limit"] == 700_000
     assert rates.REBATE_87A["new"]["2026-27"]["income_limit"] == 1_200_000
     assert rates.REBATE_87A["new"]["2026-27"]["max_rebate"] == 60_000
+
+
+def test_pre_2023_new_regime_rebate_matched_the_old_regime():
+    """Before Budget 2023 the new regime had no rebate advantage over the old
+    one — both were 5,00,000 / 12,500. Easy to assume it was always better."""
+    for ay in ("2021-22", "2022-23", "2023-24"):
+        assert rates.REBATE_87A["new"][ay] == rates.REBATE_87A["old"]
+
+
+def test_87a_advantage_for_new_regime_started_ay_2024_25():
+    assert (rates.REBATE_87A["new"]["2023-24"]
+            != rates.REBATE_87A["new"]["2024-25"])
+    assert (rates.REBATE_87A["new"]["2024-25"]["income_limit"]
+            > rates.REBATE_87A["old"]["income_limit"])
 
 
 def test_87a_does_not_cover_special_rate_income():
@@ -82,6 +119,28 @@ def test_44ada_receipt_ceiling():
     p = options.PRESUMPTIVE["44ADA"]
     assert p["turnover_limit"] == 50_00_000
     assert p["turnover_limit_if_cash_receipts_under_5pct"] == 75_00_000
+
+
+# --------------------------------------------------------------------------
+# Capital gains — the rate change that lands mid-year, not at an AY boundary
+# --------------------------------------------------------------------------
+
+def test_capital_gains_rate_rose_on_23_july_2024():
+    pre = rates.CAPITAL_GAINS_PERIODS["pre_2024_07_23"]
+    post = rates.CAPITAL_GAINS_PERIODS["post_2024_07_23"]
+    assert pre["stcg_111A"] == 0.15
+    assert post["stcg_111A"] == 0.20
+    assert pre["ltcg_112A"] == 0.10
+    assert post["ltcg_112A"] == 0.125
+
+
+def test_ltcg_112a_annual_exemption_rose_with_the_rate_change():
+    assert (rates.CAPITAL_GAINS_PERIODS["pre_2024_07_23"]["ltcg_112A_annual_exemption"]
+            < rates.CAPITAL_GAINS_PERIODS["post_2024_07_23"]["ltcg_112A_annual_exemption"])
+
+
+def test_capital_gains_current_alias_matches_post_change_rates():
+    assert rates.CAPITAL_GAINS == rates.CAPITAL_GAINS_PERIODS["post_2024_07_23"]
 
 
 # --------------------------------------------------------------------------
@@ -143,8 +202,12 @@ def test_non_relative_gift_is_taxable_in_full_above_the_threshold():
 # Chapter VI-A availability under the new regime
 # --------------------------------------------------------------------------
 
-def test_new_regime_allows_only_two_via_deductions():
-    assert set(rates.NEW_REGIME_ALLOWS_ONLY) == {"80CCD(2)", "80JJAA"}
+def test_new_regime_allows_only_three_via_deductions():
+    # 80CCD(2) employer NPS, 80JJAA new employment, 80CCH Agniveer Corpus Fund.
+    # A prior version of this test asserted only the first two, which was
+    # simply wrong -- 80CCH is allowed under the new regime too. A repo that
+    # asserts a false rule is worse than one that omits it.
+    assert set(rates.NEW_REGIME_ALLOWS_ONLY) == {"80CCD(2)", "80JJAA", "80CCH"}
     for section in rates.NEW_REGIME_ALLOWS_ONLY:
         assert section in rates.CHAPTER_VIA
 
@@ -162,6 +225,22 @@ def test_itr3_non_audit_due_date_differs_from_itr1():
     d = rates.DUE_DATES["2026-27"]
     assert d["itr1_itr2_non_audit"] == "31-07-2026"
     assert d["itr3_itr4_non_audit"] == "31-08-2026"
+
+
+def test_itr3_itr4_split_did_not_exist_before_2026_27():
+    """The forms shared one non-audit date through AY 2025-26; the split is
+    new. A case file for an earlier year must not look up the split keys."""
+    for ay in ("2023-24", "2024-25", "2025-26"):
+        assert "all_non_audit" in rates.DUE_DATES[ay]
+        assert "itr1_itr2_non_audit" not in rates.DUE_DATES[ay]
+
+
+def test_covid_years_are_deliberately_not_hardcoded():
+    """AY 2021-22 / 2022-23 due dates were revised multiple times by
+    successive CBDT notifications. Asserting one 'statutory' date for those
+    years would be more misleading than omitting them."""
+    assert "2021-22" not in rates.DUE_DATES
+    assert "2022-23" not in rates.DUE_DATES
 
 
 # --------------------------------------------------------------------------
